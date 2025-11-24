@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoIndex Explorer - Comparativa Visual de Índices Espaciales</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Leaflet css-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin="" />
+
+
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    
+
+    
+</head>
+
+<body>
+    <header>
+        <h1>GeoIndex Explorer</h1>
+        <p>Comparativa Visual e Interactiva de Índices Espaciales Multidimensionales</p>
+    </header>
+
+    <div class="container">
+        <div id="map">
+            <div class="legend">
+                <h4>Leyenda</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4285f4;"></div>
+                    <span>Puntos de Interés</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(255, 0, 0, 0.3);"></div>
+                    <span>Área de Consulta</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(76, 175, 80, 0.3);"></div>
+                    <span>Resultados Encontrados</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(255, 235, 59, 0.3);"></div>
+                    <span>Nodos Visitados</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Configuración</h2>
+                
+                <label>Estructura de Índice Espacial:</label>
+                <select id="structureSelector">
+                    <option value="kdtree">KD-Tree (k-dimensional)</option>
+                    <option value="quadtree">Quadtree (Región)</option>
+                    <option value="gridfile">Grid File (Simulado)</option>
+                    <option value="rtree">R-Tree</option>
+                </select>
+
+                <div class="structure-visualization">
+                    <h3>Características:</h3>
+                    <div id="structureInfo" class="structure-info">
+                        • Particionamiento binario del espacio<br>
+                        • Ideal para búsquedas de vecinos cercanos<br>
+                        • Complejidad: O(log n) promedio
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Datos</h2>
+                
+                <div class="button-group">
+                    <button id="loadMedellin" class="full-width">Cargar Medellín (OSM)</button>
+                    <button id="loadBogota" class="full-width">Cargar Bogotá</button>
+                    <button id="loadRandom">Datos Aleatorios</button>
+                    <button id="clearData" class="secondary">Limpiar</button>
+                </div>
+
+                <label>Cantidad de Puntos (Aleatorios):</label>
+                <input type="number" id="pointCount" value="50" min="10" max="500">
+
+                <div id="dataInfo" class="data-info">
+                    No hay datos cargados
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Consultas Espaciales</h2>
+                
+                <div class="query-type">
+                    <button class="query-btn" id="rangeQuery">Rango Circular</button>
+                    <button class="query-btn" id="knnQuery">K-Vecinos Cercanos</button>
+                    <button class="query-btn" id="polygonQuery">Intersección Polígono</button>
+                    <button class="query-btn" id="windowQuery">Ventana Rectangular</button>
+                </div>
+
+                <label>Radio de Búsqueda (metros):</label>
+                <input type="number" id="searchRadius" value="2000" min="100" max="10000" step="100">
+
+                <label>K (para K-NN):</label>
+                <input type="number" id="kValue" value="5" min="1" max="20">
+
+                <button id="executeQuery" class="full-width">Ejecutar Consulta</button>
+                
+                <div id="queryStatus" class="status-indicator warning" style="display:none;">
+                    Seleccione un tipo de consulta
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Métricas de Rendimiento</h2>
+                
+                <div id="metrics">
+                    <div class="metric-item">
+                        <span class="metric-label">Estructura:</span>
+                        <span class="metric-value" id="metricStructure">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Puntos Analizados:</span>
+                        <span class="metric-value" id="metricPoints">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Nodos Visitados:</span>
+                        <span class="metric-value" id="metricNodes">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Tiempo de Búsqueda:</span>
+                        <span class="metric-value" id="metricTime">0 ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Resultados:</span>
+                        <span class="metric-value" id="metricResults">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Factor de Carga:</span>
+                        <span class="metric-value" id="metricLoad">-</span>
+                    </div>
+                </div>
+
+                <div class="comparison-chart">
+                    <h3>Comparativa de Estructuras</h3>
+                    <div class="bar-chart" id="comparisonChart">
+                        <div class="bar-item">
+                            <span class="bar-label">KD-Tree</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%">
+                                    <span class="bar-value">0ms</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bar-item">
+                            <span class="bar-label">Quadtree</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%">
+                                    <span class="bar-value">0ms</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bar-item">
+                            <span class="bar-label">Grid File</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%">
+                                    <span class="bar-value">0ms</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bar-item">
+                            <span class="bar-label">R-Tree</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%">
+                                    <span class="bar-value">0ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="exportResults" class="full-width secondary" style="margin-top: 15px;">
+                     Exportar Resultados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
+    
+    <!-- Leaflet Draw -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- D3.js for charts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+    <!-- Chart.js for comparative graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Módulos de estructuras de datos -->
+    <script src="modules/kdTree.js"></script>
+    <script src="modules/quadTree.js"></script>
+    <script src="modules/gridFile.js"></script>
+    <script src="modules/rTree.js"></script>
+
+ <!-- Utilidades -->
+    <script src="utils/geometryUtils.js"></script>
+    <script src="utils/randomDataGenerator.js"></script>
+    <script src="utils/timer.js"></script>
+
+    <!-- Queries -->
+    <script src="queries/rangeQuery.js"></script>
+    <script src="queries/nearestNeighbor.js"></script>
+    <script src="queries/polygonIntersection.js"></script>
+
+    <!-- Visualización -->
+    <script src="visualization/map.js"></script>
+    <script src="visualization/treeVisualizer.js"></script>
+    <script src="visualization/metricsPanel.js"></script>
+
+    <!-- Benchmark & Comparativa -->
+    <script src="utils/benchmark.js"></script>
+    <script src="visualization/compareGraphs.js"></script>
+    <!-- Aplicación principal -->
+    <script src="main.js"></script>
+</body>
+</html>
